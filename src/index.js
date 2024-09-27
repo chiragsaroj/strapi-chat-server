@@ -1,4 +1,5 @@
 'use strict';
+const jwt = require('jsonwebtoken');
 
 module.exports = {
   /**
@@ -30,19 +31,32 @@ module.exports = {
 
     // Handle socket connection
     io.on('connection', (socket) => {
-      // console.log(`User connected on Socket: ${socket.id}`);
+      const token = socket.handshake.auth.token
+      if (!token) {
+        console.log('No token provided');
+        return socket.disconnect(true);
+      }
 
-      socket.on('send-message', (message) => {
-        // Add 360ms delay
-        setTimeout(()=>{
-          console.log(`Message received: ${message}`);
-          socket.emit('receive-message', message)
-        }, 360);
-      });
+      jwt.verify(token, strapi.config.get('plugin::users-permissions.jwtSecret'), (err, decoded) => {
+        if (err) {
+          console.log('Invalid token');
+          return socket.disconnect(true);
+        }
 
-      // Handle socket disconnection
-      socket.on('disconnect', () => {
-        console.log(`Socket disconnected: ${socket.id}`);
+        console.log(`User connected: ${decoded.id}`);
+
+        socket.on('send-message', (message) => {
+          // Add 360ms delay
+          setTimeout(()=>{
+            console.log(`Message received: ${message}`);
+            socket.emit('receive-message', message)
+          }, 360);
+        });
+
+        // Handle socket disconnection
+        socket.on('disconnect', () => {
+          console.log(`Socket disconnected: ${socket.id}`);
+        });
       });
     });
   },
